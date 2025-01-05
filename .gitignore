@@ -1,0 +1,72 @@
+# 编译输出
+out/
+dist/
+*.vsix
+
+# 依赖目录
+node_modules/
+
+# 运行时数据
+.vscode-test/
+.vscode-test-web/
+
+# 环境配置
+.env
+.env.local
+.env.*.local
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 编辑器和IDE文件
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.history/
+*.code-workspace
+
+# 测试覆盖率报告
+coverage/
+
+# 临时文件
+tmp/
+temp/
+.temp/
+
+# 本地配置文件
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# 用户特定文件
+*.user
+*.suo
+*.userprefs
+
+# 构建相关
+.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# 包管理器锁定文件
+# 取消注释如果你想忽略它们
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# 测试生成的文件
+.nyc_output/
+
+# 本地模板和规则文件
+.cursorrules
+templates/
+
+# 其他
+.cache/
+.local/ 

@@ -1,0 +1,95 @@
+{
+  "name": "vscode-cursor-rules-manager",
+  "displayName": "Cursor Rules Manager",
+  "description": "Manage and generate cursor rules for different project types",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cursorrules.createNew",
+        "title": "Cursor Rules: Create New Rules"
+      },
+      {
+        "command": "cursorrules.loadTemplate",
+        "title": "Cursor Rules: Load Template"
+      },
+      {
+        "command": "cursorrules.saveAsTemplate",
+        "title": "Cursor Rules: Save as Template"
+      },
+      {
+        "command": "cursorrules.switchRules",
+        "title": "Cursor Rules: Switch Rules"
+      }
+    ],
+    "configuration": {
+      "title": "Cursor Rules",
+      "properties": {
+        "cursorrules.templates.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to templates directory"
+        },
+        "cursorrules.templates.autoLoad": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto load templates on startup"
+        },
+        "cursorrules.defaultRules": {
+          "type": "string",
+          "default": "",
+          "description": "Default template name"
+        },
+        "cursorrules.statusBarEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show status bar item"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./ --preserveWatchOutput",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^20.2.5",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^5.59.8",
+    "@typescript-eslint/parser": "^5.59.8",
+    "eslint": "^8.41.0",
+    "glob": "^8.1.0",
+    "mocha": "^10.2.0",
+    "typescript": "^5.1.3",
+    "vscode-test": "^1.6.1",
+    "@vscode/vsce": "^2.19.0"
+  },
+  "dependencies": {},
+  "publisher": "your-publisher-name",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/vscode-cursor-rules-manager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/vscode-cursor-rules-manager/issues"
+  },
+  "license": "MIT"
+}

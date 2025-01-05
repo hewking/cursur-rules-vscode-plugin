@@ -1,0 +1,37 @@
+.container {
+    display: flex;
+    padding: 20px;
+}
+
+.rules-list {
+    flex: 1;
+    margin-right: 20px;
+}
+
+.rule-editor {
+    flex: 1;
+    padding: 20px;
+    border: 1px solid var(--vscode-input-border);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 5px;
+}
+
+.buttons {
+    margin-top: 20px;
+}
+
+button {
+    margin-right: 10px;
+} 
