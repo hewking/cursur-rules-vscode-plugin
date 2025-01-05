@@ -3,18 +3,12 @@ import { Rule, Template, CursorRulesError } from "../types";
 import path from "path";
 
 export class RulesManager {
-  private context: vscode.ExtensionContext;
   private templates: Map<string, Template>;
   private storageUri: vscode.Uri;
 
   constructor(context: vscode.ExtensionContext) {
-    this.context = context;
     this.templates = new Map();
-    // 使用 globalStoragePath 作为模板存储位置
-    this.storageUri = vscode.Uri.joinPath(
-      context.globalStorageUri,
-      "templates"
-    );
+    this.storageUri = vscode.Uri.joinPath(context.globalStorageUri, "templates");
     this.loadTemplates();
   }
 
@@ -34,26 +28,32 @@ export class RulesManager {
   }
 
   private async loadBuiltinTemplates() {
-    // 内置模板定义
     const builtinTemplates: Template[] = [
-      {
-        name: "React Components",
-        type: "react",
-        rules: [
-          {
-            pattern: "function.*Component",
-            flags: "g",
-            color: "#ff0000",
-            priority: 1,
-          },
-        ],
-      },
-      // 可以添加更多内置模板
+        {
+            name: "Basic Text",
+            type: "text",
+            rules: [
+                {
+                    name: "TODO",
+                    type: "TODO",
+                    content: "TODO"
+                },
+                {
+                    name: "FIXME",
+                    type: "FIXME",
+                    content: "FIXME"
+                },
+                {
+                    name: "NOTE",
+                    type: "NOTE",
+                    content: "NOTE"
+                }
+            ]
+        }
     ];
 
-    // 加载内置模板到内存
-    builtinTemplates.forEach((template) => {
-      this.templates.set(template.name, template);
+    builtinTemplates.forEach(template => {
+        this.templates.set(template.name, template);
     });
   }
 
@@ -78,37 +78,30 @@ export class RulesManager {
     }
   }
 
-  async saveTemplate(template: Partial<Template>) {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-      throw new CursorRulesError("No workspace folder found", "NO_WORKSPACE");
-    }
-
-    const currentRules = await this.getCurrentRules();
-
-    const newTemplate: Template = {
-      name: template.name || "Unnamed Template",
-      type: template.type || "custom",
-      rules: currentRules,
-    };
-
-    // 保存到内存
-    this.templates.set(newTemplate.name, newTemplate);
-
-    // 保存到全局存储
+  async saveTemplate(template: Template) {
     try {
+      // 检查是否存在同名模板
+      if (this.templates.has(template.name)) {
+        // 如果存在，直接更新内存中的模板
+        this.templates.set(template.name, template);
+      } else {
+        // 如果不存在，添加新模板
+        this.templates.set(template.name, template);
+      }
+
+      // 保存到全局存储
       const templateUri = vscode.Uri.joinPath(
         this.storageUri,
-        `${newTemplate.name.toLowerCase().replace(/\s+/g, "-")}.json`
+        `${template.name.toLowerCase().replace(/\s+/g, "-")}.json`
       );
 
       await vscode.workspace.fs.writeFile(
         templateUri,
-        Buffer.from(JSON.stringify(newTemplate, null, 2))
+        Buffer.from(JSON.stringify(template, null, 2))
       );
 
       vscode.window.showInformationMessage(
-        `Template "${newTemplate.name}" saved successfully`
+        `Template "${template.name}" ${this.templates.has(template.name) ? 'updated' : 'saved'} successfully`
       );
     } catch (error) {
       vscode.window.showErrorMessage(
@@ -123,76 +116,80 @@ export class RulesManager {
   async saveRules(rules: Rule[]) {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
-      throw new CursorRulesError("No workspace folder found", "NO_WORKSPACE");
+        throw new CursorRulesError("No workspace folder found", "NO_WORKSPACE");
     }
 
     try {
-      // 验证规则
-      if (!this.validateRules(rules)) {
-        throw new CursorRulesError("Invalid rules format", "INVALID_RULES");
-      }
+        // 只保存 content 到 .cursorrules 文件，每行一个内容
+        const ruleContents = rules.map(rule => rule.content).join('\n');
+        
+        const rulesPath = vscode.Uri.joinPath(
+            workspaceFolder.uri,
+            ".cursorrules"
+        );
 
-      // 创建完整的规则文件内容
-      const ruleFileContent = {
-        name: "Custom Rules",
-        type: "custom",
-        rules: rules.sort((a, b) => a.priority - b.priority), // 按优先级排序
-      };
+        await vscode.workspace.fs.writeFile(
+            rulesPath,
+            Buffer.from(ruleContents)  // 直接使用文本内容，不用 JSON.stringify
+        );
 
-      const rulesPath = vscode.Uri.joinPath(
-        workspaceFolder.uri,
-        ".cursorrules"
-      );
+        // 同时保存完整信息到模板
+        await this.saveTemplate({
+            name: rules[0]?.name || "Default",
+            type: rules[0]?.type || "custom",
+            rules: rules
+        });
 
-      await vscode.workspace.fs.writeFile(
-        rulesPath,
-        Buffer.from(JSON.stringify(ruleFileContent, null, 2))
-      );
-
-      // 保存成功后通知
-      vscode.window.showInformationMessage("Rules saved successfully");
+        vscode.window.showInformationMessage("Rules saved successfully");
     } catch (error) {
-      vscode.window.showErrorMessage(
-        `Failed to save rules: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
-      throw error;
+        vscode.window.showErrorMessage(
+            `Failed to save rules: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
+        throw error;
     }
   }
 
-  private validateRules(rules: Rule[]): boolean {
-    return rules.every(
-      (rule) =>
-        rule.pattern &&
-        typeof rule.pattern === "string" &&
-        rule.flags &&
-        typeof rule.flags === "string" &&
-        rule.color &&
-        typeof rule.color === "string" &&
-        typeof rule.priority === "number" &&
-        rule.priority >= 1 &&
-        rule.priority <= 100
-    );
+  async loadTemplate(name: string): Promise<Rule[]> {
+    const template = this.templates.get(name);
+    if (!template) {
+      throw new CursorRulesError("Template not found", "TEMPLATE_NOT_FOUND");
+    }
+    return template.rules || []; // 确保返回数组，即使是空数组
   }
 
   async getTemplates(): Promise<Map<string, Template>> {
     return this.templates;
   }
 
-  private async getCurrentRules(): Promise<Rule[]> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-      return [];
-    }
-
-    const rulesPath = vscode.Uri.joinPath(workspaceFolder.uri, ".cursorrules");
-
+  async deleteTemplate(name: string): Promise<void> {
     try {
-      const content = await vscode.workspace.fs.readFile(rulesPath);
-      return JSON.parse(content.toString());
-    } catch {
-      return [];
+        // 检查模板是否存在
+        if (!this.templates.has(name)) {
+            throw new CursorRulesError("Template not found", "TEMPLATE_NOT_FOUND");
+        }
+
+        // 从内存中删除
+        this.templates.delete(name);
+
+        // 从存储中删除
+        const templateUri = vscode.Uri.joinPath(
+            this.storageUri,
+            `${name.toLowerCase().replace(/\s+/g, "-")}.json`
+        );
+
+        try {
+            await vscode.workspace.fs.delete(templateUri);
+        } catch (error) {
+            console.error(`Failed to delete template file: ${error}`);
+        }
+
+    } catch (error) {
+        vscode.window.showErrorMessage(
+            `Failed to delete template: ${
+                error instanceof Error ? error.message : "Unknown error"
+            }`
+        );
+        throw error;
     }
   }
 }

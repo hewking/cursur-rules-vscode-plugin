@@ -30,6 +30,14 @@
       {
         "command": "cursorrules.switchRules",
         "title": "Cursor Rules: Switch Rules"
+      },
+      {
+        "command": "cursorrules.editTemplate",
+        "title": "Cursor Rules: Edit Template"
+      },
+      {
+        "command": "cursorrules.deleteTemplate",
+        "title": "Cursor Rules: Delete Template"
       }
     ],
     "configuration": {

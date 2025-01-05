@@ -34,4 +34,44 @@
 
 button {
     margin-right: 10px;
+}
+
+.rule-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    margin-bottom: 8px;
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
+}
+
+.rule-content {
+    flex: 1;
+}
+
+.delete-btn {
+    background: none;
+    border: none;
+    color: var(--vscode-errorForeground);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    margin-left: 8px;
+    border-radius: 4px;
+}
+
+.delete-btn:hover {
+    background-color: var(--vscode-errorForeground);
+    color: var(--vscode-editor-background);
+}
+
+.buttons {
+    display: flex;
+    gap: 8px;
+}
+
+#deleteRule {
+    background-color: var(--vscode-errorForeground);
+    color: var(--vscode-editor-background);
 } 

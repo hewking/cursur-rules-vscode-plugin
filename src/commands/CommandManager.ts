@@ -44,6 +44,14 @@ export class CommandManager {
         async (rules: Rule[]) => {
           await this.rulesManager.saveRules(rules);
         }
+      ),
+      vscode.commands.registerCommand(
+        "cursorrules.editTemplate",
+        this.editTemplate.bind(this)
+      ),
+      vscode.commands.registerCommand(
+        "cursorrules.deleteTemplate",
+        this.deleteTemplate.bind(this)
       )
     );
   }
@@ -69,116 +77,207 @@ export class CommandManager {
   }
 
   private async createInitialRule(): Promise<Rule | undefined> {
-    // 获取规则模式
-    const pattern = await vscode.window.showInputBox({
-      prompt: "Enter regex pattern",
-      placeHolder: "e.g., function.*Component|useEffect",
+    // 获取规则名称
+    const name = await vscode.window.showInputBox({
+        prompt: "Enter rule name",
+        placeHolder: "e.g., TODO Rule",
     });
 
-    if (!pattern) {
-      return;
+    if (!name) {
+        return;
     }
 
-    // 获取规则标志
-    const flags = await vscode.window.showInputBox({
-      prompt: "Enter regex flags",
-      placeHolder: "e.g., g, gi, m",
-      value: "g",
+    // 获取规则类型
+    const type = await vscode.window.showInputBox({
+        prompt: "Enter rule type",
+        placeHolder: "e.g., TODO, FIXME, NOTE",
     });
 
-    if (flags === undefined) {
-      return;
+    if (!type) {
+        return;
     }
 
-    // 获取颜色
-    const colors = ["Red", "Green", "Blue", "Yellow", "Purple", "Orange"];
-    const colorChoice = await vscode.window.showQuickPick(colors, {
-      placeHolder: "Select highlight color",
+    // 获取规则内容
+    const content = await vscode.window.showInputBox({
+        prompt: "Enter content to match",
+        placeHolder: "e.g., TODO, FIXME, NOTE",
     });
 
-    if (!colorChoice) {
-      return;
-    }
-
-    const colorMap = {
-      Red: "#ff0000",
-      Green: "#00ff00",
-      Blue: "#0000ff",
-      Yellow: "#ffff00",
-      Purple: "#800080",
-      Orange: "#ffa500",
-    };
-
-    // 获取优先级
-    const priority = await vscode.window.showInputBox({
-      prompt: "Enter priority (1-100)",
-      placeHolder: "1",
-      value: "1",
-      validateInput: (value) => {
-        const num = parseInt(value);
-        return !isNaN(num) && num >= 1 && num <= 100
-          ? null
-          : "Please enter a number between 1 and 100";
-      },
-    });
-
-    if (!priority) {
-      return;
+    if (!content) {
+        return;
     }
 
     return {
-      pattern,
-      flags,
-      color: colorMap[colorChoice as keyof typeof colorMap],
-      priority: parseInt(priority),
+        name,
+        type,
+        content
     };
   }
 
   private async loadTemplate() {
-    const templates = await this.rulesManager.getTemplates();
-    const items = Array.from(templates.values()).map((t) => ({
-      label: t.name,
-      description: t.type,
-    }));
+    try {
+        const templates = await this.rulesManager.getTemplates();
+        if (templates.size === 0) {
+            vscode.window.showInformationMessage("No templates available");
+            return;
+        }
 
-    const selected = await vscode.window.showQuickPick(items, {
-      placeHolder: "Select a template",
-    });
+        const items = Array.from(templates.values()).map((t) => ({
+            label: t.name,
+            description: t.type,
+        }));
 
-    if (selected) {
-      const template = templates.get(selected.label);
-      if (template) {
-        await this.rulesManager.saveRules(template.rules);
-        this.statusBar.updateStatusBar(template.name);
-      }
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: "Select a template",
+        });
+
+        if (selected) {
+            const template = templates.get(selected.label);
+            if (template && template.rules) {
+                await this.rulesManager.saveRules(template.rules);
+                this.statusBar.updateStatusBar(template.name);
+            }
+        }
+    } catch (error) {
+        vscode.window.showErrorMessage(
+            `Failed to load template: ${
+                error instanceof Error ? error.message : "Unknown error"
+            }`
+        );
     }
   }
 
   private async saveAsTemplate() {
     const name = await vscode.window.showInputBox({
-      placeHolder: "Enter template name",
+        placeHolder: "Enter template name",
     });
 
     if (!name) {
-      return;
+        return;
     }
 
     const type = await vscode.window.showInputBox({
-      placeHolder: "Enter template type (e.g., react, vue)",
+        placeHolder: "Enter template type (e.g., react, vue)",
     });
 
     if (!type) {
-      return;
+        return;
     }
 
-    await this.rulesManager.saveTemplate({ name, type });
-    vscode.window.showInformationMessage(
-      `Template "${name}" saved successfully`
-    );
+    // 获取当前工作区的规则
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        vscode.window.showErrorMessage("Please open a workspace first");
+        return;
+    }
+
+    try {
+        const rulesPath = vscode.Uri.joinPath(workspaceFolder.uri, ".cursorrules");
+        const content = await vscode.workspace.fs.readFile(rulesPath);
+        const ruleContents = content.toString().split('\n').filter(line => line.trim());
+
+        // 创建规则数组
+        const rules: Rule[] = ruleContents.map(content => ({
+            name: content,
+            type: type,
+            content: content
+        }));
+
+        // 保存模板
+        await this.rulesManager.saveTemplate({
+            name,
+            type,
+            rules
+        });
+
+        vscode.window.showInformationMessage(
+            `Template "${name}" saved successfully`
+        );
+    } catch (error) {
+        vscode.window.showErrorMessage(
+            `Failed to save template: ${
+                error instanceof Error ? error.message : "Unknown error"
+            }`
+        );
+    }
   }
 
   private async switchRules() {
     await this.loadTemplate();
+  }
+
+  private async editTemplate() {
+    try {
+        const templates = await this.rulesManager.getTemplates();
+        if (templates.size === 0) {
+            vscode.window.showInformationMessage("No templates available");
+            return;
+        }
+
+        const items = Array.from(templates.values()).map((t) => ({
+            label: t.name,
+            description: t.type,
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: "Select template to edit",
+        });
+
+        if (selected) {
+            const template = templates.get(selected.label);
+            if (template) {
+                await this.webview.showRulesEditor(template.rules);
+                this.statusBar.updateStatusBar(template.name);
+            }
+        }
+    } catch (error) {
+        vscode.window.showErrorMessage(
+            `Failed to edit template: ${
+                error instanceof Error ? error.message : "Unknown error"
+            }`
+        );
+    }
+  }
+
+  private async deleteTemplate() {
+    try {
+        const templates = await this.rulesManager.getTemplates();
+        if (templates.size === 0) {
+            vscode.window.showInformationMessage("No templates available");
+            return;
+        }
+
+        const items = Array.from(templates.values()).map((t) => ({
+            label: t.name,
+            description: t.type,
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: "Select template to delete",
+        });
+
+        if (selected) {
+            const confirm = await vscode.window.showWarningMessage(
+                `Are you sure you want to delete template "${selected.label}"?`,
+                { modal: true },
+                "Yes",
+                "No"
+            );
+
+            if (confirm === "Yes") {
+                await this.rulesManager.deleteTemplate(selected.label);
+                vscode.window.showInformationMessage(
+                    `Template "${selected.label}" deleted successfully`
+                );
+            }
+        }
+    } catch (error) {
+        vscode.window.showErrorMessage(
+            `Failed to delete template: ${
+                error instanceof Error ? error.message : "Unknown error"
+            }`
+        );
+    }
   }
 
   // 其他命令实现...
