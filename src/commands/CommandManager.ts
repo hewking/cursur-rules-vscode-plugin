@@ -148,23 +148,6 @@ export class CommandManager {
   }
 
   private async saveAsTemplate() {
-    const name = await vscode.window.showInputBox({
-        placeHolder: "Enter template name",
-    });
-
-    if (!name) {
-        return;
-    }
-
-    const type = await vscode.window.showInputBox({
-        placeHolder: "Enter template type (e.g., react, vue)",
-    });
-
-    if (!type) {
-        return;
-    }
-
-    // 获取当前工作区的规则
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
         vscode.window.showErrorMessage("Please open a workspace first");
@@ -172,26 +155,81 @@ export class CommandManager {
     }
 
     try {
+        // 先读取当前规则
         const rulesPath = vscode.Uri.joinPath(workspaceFolder.uri, ".cursorrules");
         const content = await vscode.workspace.fs.readFile(rulesPath);
         const ruleContents = content.toString().split('\n').filter(line => line.trim());
 
-        // 创建规则数组
-        const rules: Rule[] = ruleContents.map(content => ({
-            name: content,
-            type: type,
-            content: content
+        if (ruleContents.length === 0) {
+            vscode.window.showErrorMessage("No rules found to save as template");
+            return;
+        }
+
+        // 获取现有模板列表
+        const templates = await this.rulesManager.getTemplates();
+        const existingNames = Array.from(templates.keys());
+
+        // 获取模板名称
+        const name = await vscode.window.showInputBox({
+            placeHolder: "Enter template name",
+            prompt: "Enter a name for your template (existing template will be overwritten)",
+            value: "My Template",
+            validateInput: async (value) => {
+                if (existingNames.includes(value)) {
+                    return `Template "${value}" already exists and will be overwritten`;
+                }
+                return null;
+            }
+        });
+
+        if (!name) {
+            return;
+        }
+
+        // 如果是覆盖已有模板，询问确认
+        if (templates.has(name)) {
+            const confirm = await vscode.window.showWarningMessage(
+                `Template "${name}" already exists. Do you want to overwrite it?`,
+                { modal: true },
+                "Yes",
+                "No"
+            );
+
+            if (confirm !== "Yes") {
+                return;
+            }
+        }
+
+        // 获取模板类型（如果是覆盖，使用原有类型）
+        let type = templates.get(name)?.type;
+        if (!type) {
+            type = await vscode.window.showInputBox({
+                placeHolder: "Enter template type",
+                prompt: "Enter the type of your template (e.g., react, vue, custom)",
+                value: "custom"
+            });
+
+            if (!type) {
+                return;
+            }
+        }
+
+        // 创建规则数组，使用递增索引作为规则名称
+        const rules: Rule[] = ruleContents.map((content, index) => ({
+            name: `Rule ${index + 1}`,
+            type: type!,
+            content: content.trim()
         }));
 
         // 保存模板
         await this.rulesManager.saveTemplate({
             name,
-            type,
+            type: type!,
             rules
         });
 
         vscode.window.showInformationMessage(
-            `Template "${name}" saved successfully`
+            `Template "${name}" ${templates.has(name) ? 'updated' : 'saved'} successfully`
         );
     } catch (error) {
         vscode.window.showErrorMessage(
